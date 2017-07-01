@@ -1,3 +1,4 @@
+import datetime
 from sqlalchemy import Column, ForeignKey
 from sqlalchemy import Integer, String, Date
 from sqlalchemy.ext.declarative import declarative_base
@@ -9,6 +10,9 @@ class DocumentLE(Base):
 	__tablename__ = 'doc_leg_ent'
 
 	id = Column(Integer, primary_key=True)
+	origin_file_id = Column(Integer,
+		ForeignKey('xml_meta.id'),
+		nullable=False)
 	leg_ent_id = Column(Integer,
 		ForeignKey('legal_entity.id'),
 		nullable=False)
@@ -40,6 +44,9 @@ class DocumentIP(Base):
 	__tablename__ = 'doc_ind_ent'
 
 	id = Column(Integer, primary_key=True)
+	origin_file_id = Column(Integer,
+		ForeignKey('xml_meta.id'),
+		nullable=False)
 	ind_ent_id = Column(Integer,
 		ForeignKey('individual_enterpreneur.id'),
 		nullable=False)
@@ -227,6 +234,10 @@ class OriginFile(Base):
 	info_type = Column(String(50), nullable=False)
 	prog_version = Column(String(40), nullable=True)
 	doc_count = Column(Integer, nullable=False)
+	sender_id = Column(Integer,
+		ForeignKey('senders.id'),
+		nullable=False)
+	actuality_date = Column(Date, nullable=False)
 
 
 class Sender(Base):
@@ -281,6 +292,9 @@ class AdressOpt(Base):
 
 
 if __name__ == '__main__':
+	# execute basestart.sql before running this script
+
 	from sqlalchemy import create_engine
 	engine = create_engine('mysql+mysqldb://root:1234@localhost:3306/rsmp')
+	Base.metadata.drop_all(engine)
 	Base.metadata.create_all(engine)
