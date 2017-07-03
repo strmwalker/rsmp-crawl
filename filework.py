@@ -253,7 +253,8 @@ def connect_license_names(root, license_id):
     names = root.findall('НаимЛицВД')
     for name in names:
         l = {'name': name.text,
-            'part': names.index(name)}
+            'part': names.index(name),
+            'license_id': license_id}
         session.add(LicenseName(**l))
     session.commit()
     session.close()
@@ -264,19 +265,24 @@ def connect_license_adress(root, license_id):
     adresses = root.findall('СведАдрЛицВД')
     for adress in adresses:
         l = {'name': adress.text,
-            'part': adresses.index(adress)}
+            'part': adresses.index(adress),
+            'license_id': license_id}
         session.add(LicenseName(**l))
     session.commit()
     session.close()
 
 
-def save_licence(root):
+def save_license(root):
     session = Session()
     license_list = root.findall('СвЛиценз')
     for ch in license_list:
         l = {}
         for k,v in license_dict.items():
             l[k] = ch.attrib.get(v)
+        l['date'] = parse(ch.attrib.get('ДатаЛиценз'))
+        l['start_date'] = parse(ch.attrib.get('ДатаНачЛиценз', "01.01.1900"))
+        l['end_date'] = parse(ch.attrib.get('ДатаКонЛиценз', "01.01.1900"))
+        l['stop_date'] = parse(ch.attrib.get('ДатаОстЛиценз', "01.01.1900"))
         license = License(**l)
         session.add(license)
         session.flush()
@@ -310,6 +316,8 @@ def save_programs(root):
         p_args = {}
         for k,v in prog_dict.items():
             p_args[k] = p.attrib.get(v)
+
+        p['agreement_date'] = parse(p.attrib.get('ДатаДог', "01.01.1900"))
         program = PartnerProgram(**p_args)
         session.add(program)
         session.flush()
@@ -326,6 +334,7 @@ def save_contracts(root):
         c_args = {}
         for k,v in contract_dict.items():
             c_args[k] = c.attrib.get(v)
+        c_args['date'] = parse(c.attrib.get('ДатаКонтр', "01.01.1900"))
         contract = Contract(**c_args)
         session.add(contract)
         session.flush()
@@ -343,6 +352,7 @@ def save_agreements(root):
         a_args = {}
         for k, v in agreement_dict.items():
             a_args[k] = a.attrib.get(v)
+        a['date'] = parse(a.attrib.get('ДатаДог', "01.01.1900"))
         agreement = Agreement(**a_args)
         session.add(agreement)
         session.flush()
@@ -360,6 +370,7 @@ def save_doc(root):
     doc.update(dict(origin_file_id=origin_file.id))
     doc.update({'doc_id': root.attrib.get('ИдДок')})
     doctype = root.getchildren()[0].tag
+    print(doctype)
     if doctype == 'ИПВклМСП':
         ie_id = load_ind_ent(root.getchildren()[0])
         le_id = 1
@@ -497,7 +508,7 @@ def main():
         root = xmlf.getroot()
 
     load_origin_file(root)
-    for ch in root.getchildren()[1:20]:
+    for ch in root.getchildren()[1:]:
         save_doc(ch)
 
 
