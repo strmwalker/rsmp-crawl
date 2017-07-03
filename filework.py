@@ -139,7 +139,7 @@ def load_leg_ent(root):
     session = Session()
     q = session.query(LegalEntity).filter_by(**le)
     if len(q.all()) == 0:
-        leg_ent = Individual(**le)
+        leg_ent = LegalEntity(**le)
         session.add(leg_ent)
         session.flush()
         i = leg_ent.id
@@ -366,7 +366,7 @@ def save_doc(root):
     elif doctype == 'ОргВклМСП':
         ie_id = 1
         le_id = load_leg_ent(root.getchildren()[0])
-    print(doctype)
+
     doc.update({'entity_type': doctype,
         'ind_ent_id': ie_id,
         'leg_ent_id': le_id})
