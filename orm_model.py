@@ -326,14 +326,8 @@ class OkvedCode(Base):
     __tablename__ = 'okved_codes'
 
     id = Column(Integer, primary_key=True)
-    code = Column(String(8), nullable=False,
-        doc='Код вида деятельности по Общероссийскому классификатору видов\
-         экономической деятельности'
-        )
-    name = Column(String(1000), nullable=False,
-        doc='Наименование вида деятельности по Общероссийскому классификатору\
-         видов экономической деятельности'
-         )
+    code = Column(String(8), nullable=False)
+    name = Column(String(1000), nullable=False)
     version = Column(String(4), nullable=False)
 
 

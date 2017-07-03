@@ -10,6 +10,7 @@ from dateparser import parse
 
 engine = create_engine('mysql+mysqldb://root:1234@localhost:3306/rsmp?charset=utf8')
 Session = sessionmaker(bind=engine)
+session = Session() # this shoudl be class instance
 
 sender_dict = dict(position='ДолжОтв',
                    phone_number='Тлф',
@@ -86,7 +87,6 @@ def load_sender(root):
     s['last_name'] = name.attrib.get('Фамилия')
     s['middle_name'] = name.attrib.get('Отчество')
     
-    session = Session()
     q = session.query(Sender).filter_by(**s)
     if len(q.all()) == 0:
         sender = Sender(**s)
@@ -97,8 +97,6 @@ def load_sender(root):
     else:
         i = q.one().id
 
-
-    session.close()
     return i
 
 
@@ -115,7 +113,6 @@ def load_ind_ent(root):
 
     ip['inn'] = root.get('ИННФЛ')
 
-    session = Session()
     q = session.query(Individual).filter_by(**ip)
     if len(q.all()) == 0:
         indiv = Individual(**ip)
@@ -126,8 +123,6 @@ def load_ind_ent(root):
     else:
         i = q.one().id
 
-    session.close()
-
     return i
 
 
@@ -136,7 +131,6 @@ def load_leg_ent(root):
     for k,v in leg_ent_dict.items():
         le[k] = root.attrib.get(v)
 
-    session = Session()
     q = session.query(LegalEntity).filter_by(**le)
     if len(q.all()) == 0:
         leg_ent = LegalEntity(**le)
@@ -147,7 +141,6 @@ def load_leg_ent(root):
     else:
         i = q.one().id
 
-    session.close()
     return i
 
 
@@ -159,7 +152,6 @@ def load_adress_req(root):
         addr[k] = root.attrib.get(v)
 
     a = AdressReq(**addr)
-    session = Session()
     q = session.query(AdressReq).filter_by(**addr)
     if len(q.all()) == 1:
         i = q.one().id
@@ -169,7 +161,6 @@ def load_adress_req(root):
         i = a.id
         session.commit()
 
-    session.close()
     return i
 
 
@@ -181,7 +172,6 @@ def load_adress_opt(root):
         addr[k] = root.attrib.get(v)
 
     a = AdressOpt(**addr)
-    session = Session()
     q = session.query(AdressOpt).filter_by(**addr)
     if len(q.all()) == 1:
         i = q.one().id
@@ -191,7 +181,6 @@ def load_adress_opt(root):
         i = a.id
         session.commit()
 
-    session.close()
     return i
 
 
@@ -222,7 +211,6 @@ def load_okved(root):
         c[k] = root.attrib.get(v)
 
     code = OkvedCode(**c)
-    session = Session()
     q = session.query(OkvedCode).filter_by(**c)
     if len(q.all()) == 1:
         i = q.one().id
@@ -232,7 +220,6 @@ def load_okved(root):
         i = code.id
         session.commit()
 
-    session.close()
     return i
 
 
@@ -249,19 +236,16 @@ def save_okved(root):
 
 
 def connect_license_names(root, license_id):
-    session = Session()
     names = root.findall('НаимЛицВД')
     for name in names:
         l = {'name': name.text,
-            'part': names.index(name),
+            'part': names.index(name) + 1,
             'license_id': license_id}
         session.add(LicenseName(**l))
     session.commit()
-    session.close()
 
 
 def connect_license_adress(root, license_id):
-    session = Session()
     adresses = root.findall('СведАдрЛицВД')
     for adress in adresses:
         l = {'name': adress.text,
@@ -269,32 +253,31 @@ def connect_license_adress(root, license_id):
             'license_id': license_id}
         session.add(LicenseName(**l))
     session.commit()
-    session.close()
 
 
 def save_license(root):
-    session = Session()
     license_list = root.findall('СвЛиценз')
+    l_list = []
     for ch in license_list:
         l = {}
         for k,v in license_dict.items():
             l[k] = ch.attrib.get(v)
-        l['date'] = parse(ch.attrib.get('ДатаЛиценз'))
-        l['start_date'] = parse(ch.attrib.get('ДатаНачЛиценз', "01.01.1900"))
-        l['end_date'] = parse(ch.attrib.get('ДатаКонЛиценз', "01.01.1900"))
-        l['stop_date'] = parse(ch.attrib.get('ДатаОстЛиценз', "01.01.1900"))
+        l['date'] = parse(ch.attrib.get('ДатаЛиценз', "31.12.5999")).date()
+        l['start_date'] = parse(ch.attrib.get('ДатаНачЛиценз', "01.01.1900")).date()
+        l['end_date'] = parse(ch.attrib.get('ДатаКонЛиценз', "01.01.1900")).date()
+        l['stop_date'] = parse(ch.attrib.get('ДатаОстЛиценз', "01.01.1900")).date()
         license = License(**l)
         session.add(license)
         session.flush()
-        connect_license_names(ch, license.id)
-        connect_license_adress(ch, license.id)
-        license_list.append(license.id)
-    session.close()
-    return license_list 
+        l_id = license.id
+        session.commit()
+        connect_license_names(ch, l_id)
+        connect_license_adress(ch, l_id)
+        l_list.append(l_id)
+    return l_list 
 
 
 def save_products(root):
-    session = Session()
     prod_list = root.findall('СвПрод')
     for prod in prod_list:
         p = {}
@@ -309,7 +292,6 @@ def save_products(root):
 
 
 def save_programs(root):
-    session = Session()
     prog_list = root.findall('СвПрогПарт')
     p_list = []
     for p in prog_list:
@@ -317,34 +299,32 @@ def save_programs(root):
         for k,v in prog_dict.items():
             p_args[k] = p.attrib.get(v)
 
-        p['agreement_date'] = parse(p.attrib.get('ДатаДог', "01.01.1900"))
+        p['agreement_date'] = parse(p.attrib.get('ДатаДог', "01.01.1900")).date()
         program = PartnerProgram(**p_args)
         session.add(program)
         session.flush()
         p_list.append(program.id)
-    session.close()
+
     return p_list
 
 
 def save_contracts(root):
-    session = Session()
     c_list = root.findall('СвКонтр')
     contract_list
     for c in c_list:
         c_args = {}
         for k,v in contract_dict.items():
             c_args[k] = c.attrib.get(v)
-        c_args['date'] = parse(c.attrib.get('ДатаКонтр', "01.01.1900"))
+        c_args['date'] = parse(c.attrib.get('ДатаКонтр', "01.01.1900")).date()
         contract = Contract(**c_args)
         session.add(contract)
         session.flush()
         contract_list.append(contract.id)
-    session.close()
+
     return contract_list
 
 
 def save_agreements(root):
-    session = Session()
     agr_list = root.findall('СвДог')
     a_list = []
 
@@ -352,25 +332,24 @@ def save_agreements(root):
         a_args = {}
         for k, v in agreement_dict.items():
             a_args[k] = a.attrib.get(v)
-        a['date'] = parse(a.attrib.get('ДатаДог', "01.01.1900"))
+        a['date'] = parse(a.attrib.get('ДатаДог', "01.01.1900")).date()
         agreement = Agreement(**a_args)
         session.add(agreement)
         session.flush()
         a_list.append(agreement.id)
-    session.close()
     return a_list
 
 
 def save_doc(root):
     doc = {}
-    session = Session()
     origin_file = (session.query(OriginFile).
             filter_by(file_id = root.getparent().get('ИдФайл')).
             one())
     doc.update(dict(origin_file_id=origin_file.id))
     doc.update({'doc_id': root.attrib.get('ИдДок')})
     doctype = root.getchildren()[0].tag
-    print(doctype)
+    print(f'Документ.ДокИд: {doc.get("doc_id")}')
+    # print(doctype)
     if doctype == 'ИПВклМСП':
         ie_id = load_ind_ent(root.getchildren()[0])
         le_id = 1
@@ -448,7 +427,6 @@ def save_doc(root):
         agreement_flag=a_flag)
     
     doc.update(rest_args)
-    session = Session()
     document = Document(**doc)
     session.add(document)
     session.flush()
@@ -476,14 +454,12 @@ def save_doc(root):
         session.add(a)
 
     session.commit()
-    session.close()
 
-    print(f'Finished Документ с ДокИд {doc.get("doc_id")}')
+    # print(f'Finished Документ.ДокИд: {doc.get("doc_id")}')
 
 
 def load_origin_file(root):
     sender = root.find('ИдОтпр')
-    session = Session()
     f = {}
 
     for k,v in file_dict.items():
@@ -496,7 +472,6 @@ def load_origin_file(root):
 
     session.add(file)
     session.commit()
-    session.close()
 
 
 def main():
@@ -510,7 +485,7 @@ def main():
     load_origin_file(root)
     for ch in root.getchildren()[1:]:
         save_doc(ch)
-
+    session.close()
 
 if __name__ == '__main__':
     main()
