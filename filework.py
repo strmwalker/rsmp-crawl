@@ -11,10 +11,7 @@ from dateparser import parse
 engine = create_engine('mysql+mysqldb://root:1234@localhost:3306/rsmp?charset=utf8')
 Session = sessionmaker(bind=engine)
 
-sender_dict = dict(last_name='Фамилия',
-                   first_name='Имя',
-                   middle_name='Отчество',
-                   position='ДолжОтв',
+sender_dict = dict(position='ДолжОтв',
                    phone_number='Тлф',
                    email='E-mail')
 
@@ -63,13 +60,13 @@ product_dict = {'code': 'КодПрод',
     'innovative_flag': 'ПрОтнПрод'}
 
 contract_dict = {'lcustomer_inn': 'ИННЮЛ_ЗК',
-    'customer_name': 'НаимЮЛ_ЗК'
+    'customer_name': 'НаимЮЛ_ЗК',
     'subject': 'ПредметКонтр',
     'registry_number': 'НомКонтрРеестр',
     'date': 'ДатаКонтр'}
 
 agreement_dict = {'lcustomer_inn': 'ИННЮЛ_ЗК',
-    'customer_name': 'НаимЮЛ_ЗК'
+    'customer_name': 'НаимЮЛ_ЗК',
     'subject': 'ПредмДог',
     'registry_number': 'НомДогРеестр',
     'date': 'ДатаДог'}
@@ -84,6 +81,11 @@ def load_sender(root):
     for k,v in sender_dict.items():
         s[k] = root.attrib.get(v)
 
+    name = root.find('ФИООтв')
+    s['first_name'] = name.attrib.get('Имя')
+    s['last_name'] = name.attrib.get('Фамилия')
+    s['middle_name'] = name.attrib.get('Отчество')
+    
     session = Session()
     q = session.query(Sender).filter_by(**s)
     if len(q.all()) == 0:
@@ -159,7 +161,7 @@ def load_adress_req(root):
     a = AdressReq(**addr)
     session = Session()
     q = session.query(AdressReq).filter_by(**addr)
-    if len(q.all) == 1:
+    if len(q.all()) == 1:
         i = q.one().id
     else:
         session.add(a)
@@ -181,7 +183,7 @@ def load_adress_opt(root):
     a = AdressOpt(**addr)
     session = Session()
     q = session.query(AdressOpt).filter_by(**addr)
-    if len(q.all) == 1:
+    if len(q.all()) == 1:
         i = q.one().id
     else:
         session.add(a)
@@ -210,7 +212,7 @@ def loc_idx(root):
     else:
         locality = None
 
-    return region, district, city, locality
+    return region_id, district, city, locality
 
 
 def load_okved(root):
@@ -222,7 +224,7 @@ def load_okved(root):
     code = OkvedCode(**c)
     session = Session()
     q = session.query(OkvedCode).filter_by(**c)
-    if q:
+    if len(q.all()) == 1:
         i = q.one().id
     else:
         session.add(code)
@@ -235,19 +237,15 @@ def load_okved(root):
 
 
 def save_okved(root):
-    primary = root.find('СвОКВЭДОсн')
-    if primary:
-        primary_i = load_okved(primary)
-    else:
-        primary = None
+    codes = root.find('СвОКВЭД').getchildren()
 
-    secondary = root.findall('СвОКВЭДДоп')
+    primary_i = [load_okved(codes[0])]
     secondary_i = []
-    if secondary:
-        for code in secondary:
+    if len(codes) > 1:
+        for code in codes[1:]:
             secondary_i.append(load_okved(code))
 
-    return list(primary_i).append(secondary_i)
+    return primary_i + secondary_i
 
 
 def connect_license_names(root, license_id):
@@ -357,17 +355,18 @@ def save_doc(root):
     doc = {}
     session = Session()
     origin_file = (session.query(OriginFile).
-            filter_by(OrginFile.file_id = root.getparent().get('ИдФайл')).
+            filter_by(file_id = root.getparent().get('ИдФайл')).
             one())
     doc.update(dict(origin_file_id=origin_file.id))
-
-    doctype = root.getchildren[0].tag
+    doc.update({'doc_id': root.attrib.get('ИдДок')})
+    doctype = root.getchildren()[0].tag
     if doctype == 'ИПВклМСП':
         ie_id = load_ind_ent(root.getchildren()[0])
         le_id = 1
-    if doctype == 'ОргВклМСП':
+    elif doctype == 'ОргВклМСП':
         ie_id = 1
         le_id = load_leg_ent(root.getchildren()[0])
+    print(doctype)
     doc.update({'entity_type': doctype,
         'ind_ent_id': ie_id,
         'leg_ent_id': le_id})
@@ -380,7 +379,7 @@ def save_doc(root):
     # SvOKVED routine
     if root.find('СвОКВЭД'):
         okved_flag_ = 'Y'
-        okved_list = save_okved(okved)
+        okved_list = save_okved(root)
     else:
         okved_flag_ = 'N'
         okved_list = []
@@ -429,9 +428,9 @@ def save_doc(root):
         district=d,
         city=c,
         locality=l,
-        region_code=r_code,
+        region_code=int(r_code),
         okved_flag=okved_flag_,
-        license_flag=license_flag_,
+        licenses_flag=license_flag_,
         products_flag=prod_flag,
         partner_program_flag=prog_flag,
         contract_flag=c_flag,
@@ -444,8 +443,10 @@ def save_doc(root):
     session.flush()
     docid = document.id
 
-    for idx in okved_list:
-        c = Okved2Doc(doc_id=docid, okved_id=idx)
+    c = Okved2Doc(doc_id=docid, okved_id=okved_list[0], primary_flag='Y')
+    session.add(c)
+    for idx in okved_list[1:]:
+        c = Okved2Doc(doc_id=docid, okved_id=idx, primary_flag='N')
         session.add(c)
     for idx in license_list:
         l = License2Doc(doc_id=docid, license_id=idx)
@@ -465,6 +466,8 @@ def save_doc(root):
 
     session.commit()
     session.close()
+
+    print(f'Finished Документ с ДокИд {doc.get("doc_id")}')
 
 
 def load_origin_file(root):
@@ -494,7 +497,7 @@ def main():
         root = xmlf.getroot()
 
     load_origin_file(root)
-    for ch in root.getchildren[:20]:
+    for ch in root.getchildren()[1:20]:
         save_doc(ch)
 
 

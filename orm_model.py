@@ -23,6 +23,7 @@ class Document(Base):
     origin_file_id = Column(Integer,
         ForeignKey('xml_meta.id'),
         nullable=False)
+    doc_id = Column(String(36), nullable=False)
     entity_type = Column(String(9), nullable=False)
     ind_ent_id = Column(Integer,
         ForeignKey('individual_enterpreneur.id'),
@@ -51,7 +52,7 @@ class Document(Base):
     agreement_flag = Column(String(1), nullable=False)
 
 
-class OKVED2Doc(Base):
+class Okved2Doc(Base):
     """Таблица соединения Документа и КодОКВЭД"""
     
     __tablename__ = 'okved2doc'
