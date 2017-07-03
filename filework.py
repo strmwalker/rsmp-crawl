@@ -6,6 +6,7 @@ from zipfile import ZipFile
 from lxml import etree
 
 from datetime import date
+from dateparser import parse
 
 engine = create_engine('mysql+mysqldb://root:1234@localhost:3306/rsmp?charset=utf8')
 Session = sessionmaker(bind=engine)
@@ -363,9 +364,9 @@ def save_doc(root):
     doctype = root.getchildren[0].tag
     if doctype == 'ИПВклМСП':
         ie_id = load_ind_ent(root.getchildren()[0])
-        le_id = 0
+        le_id = 1
     if doctype == 'ОргВклМСП':
-        ie_id = 0
+        ie_id = 1
         le_id = load_leg_ent(root.getchildren()[0])
     doc.update({'entity_type': doctype,
         'ind_ent_id': ie_id,
@@ -475,7 +476,7 @@ def load_origin_file(root):
         f[k] = root.attrib.get(v)
 
     f.update(dict(sender_id=load_sender(sender)))
-    f.update(dict(actuality_date=date.today()))
+    f.update(dict(actuality_date=parse('11.07.2017')))
 
     file = OriginFile(**f)
 
@@ -496,3 +497,6 @@ def main():
     for ch in root.getchildren[:20]:
         save_doc(ch)
 
+
+if __name__ == '__main__':
+    main()
