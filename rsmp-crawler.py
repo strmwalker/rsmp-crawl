@@ -37,9 +37,6 @@ def main():
         print(f'Saved {name} as json.')
 
 
-def xml_to_orm():
-    pass
-
 
 if __name__ == '__main__':
     main()

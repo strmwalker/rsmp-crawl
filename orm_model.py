@@ -5,13 +5,26 @@ from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
 
-class DocumentLE(Base):
-	"""Состав и структура документа юридического лица"""
-	__tablename__ = 'doc_leg_ent'
+
+class Document(Base):
+	"""Состав и структура документа индивидуального предпренимателя"""
+	ru_map = {'ind_ent_id': 'ИПВклМСП',
+		 'region': "Регион",
+		 'district': "Район",
+		 'city': "Город",
+		 'locality': "НаселПункт",
+		 'region_code': "КодРегион",
+		 'okved_primary': "СвОКВЭДОсн"}
+
+	__tablename__ = 'document'
 
 	id = Column(Integer, primary_key=True)
 	origin_file_id = Column(Integer,
 		ForeignKey('xml_meta.id'),
+		nullable=False)
+	entity_type = Column(String(9), nullable=False)
+	ind_ent_id = Column(Integer,
+		ForeignKey('individual_enterpreneur.id'),
 		nullable=False)
 	leg_ent_id = Column(Integer,
 		ForeignKey('legal_entity.id'),
@@ -29,9 +42,7 @@ class DocumentLE(Base):
 		ForeignKey('adress_opt.id'),
 		nullable=True)
 	region_code = Column(String(2), nullable=False)
-	okved_primary = Column(Integer,
-		ForeignKey('okved_codes.id'),
-		nullable=True)
+	okved_flag = Column(String(1), nullable=False)
 	licenses_flag = Column(String(1), nullable=False)
 	products_flag = Column(String(1), nullable=False)
 	partner_program_flag = Column(String(1), nullable=False)
@@ -39,55 +50,27 @@ class DocumentLE(Base):
 	agreement_flag = Column(String(1), nullable=False)
 
 
-class DocumentIP(Base):
-	"""Состав и структура документа индивидуального предпренимателя"""
-	__tablename__ = 'doc_ind_ent'
-
-	id = Column(Integer, primary_key=True)
-	origin_file_id = Column(Integer,
-		ForeignKey('xml_meta.id'),
+class OKVED2Doc(Base):
+	"""Таблица соединения Документа и КодОКВЭД"""
+	
+	__tablename__ = 'okved2doc'
+	id = Column(Integer, primary_key=True, nullable=False)
+	doc_id = Column(Integer,
+		ForeignKey('document.id'),
 		nullable=False)
-	ind_ent_id = Column(Integer,
-		ForeignKey('individual_enterpreneur.id'),
-		nullable=False)
-	region = Column(Integer,
-		ForeignKey('adress_req.id'),
-		nullable=False)
-	district = Column(Integer,
-		ForeignKey('adress_req.id'),
-		nullable=True)
-	city = Column(Integer,
-		ForeignKey('adress_req.id'),
-		nullable=True)
-	locality = Column(Integer,
-		ForeignKey('adress_opt.id'),
-		nullable=True)
-	region_code = Column(String(2), nullable=False)
-	okved_primary = Column(Integer,
+	okved_id = Column(Integer,
 		ForeignKey('okved_codes.id'),
-		nullable=True)
-	licenses_flag = Column(String(1), nullable=False)
-	products_flag = Column(String(1), nullable=False)
-	partner_program_flag = Column(String(1), nullable=False)
-	contract_flag = Column(String(1), nullable=False)
-	agreement_flag = Column(String(1), nullable=False)
-
+		nullable=False)
+	primary_flag = Column(String(1), nullable=False)
+		
 
 class License(Base):
 	"""Сведения о лицензиях, выданных субъекту МСП"""
+
 	__tablename__ = 'license'
 
 	id = Column(Integer, primary_key=True, nullable=False)
 
-	# doc_le_id/doc_ip_id должно быть 0
-	doc_le_id = Column(Integer,
-		ForeignKey('doc_leg_ent.id'),
-		nullable=False)
-	doc_ip_id = Column(Integer,
-		ForeignKey('doc_ind_ent.id'),
-		nullable=False)
-	activity_flag = Column(String(1),
-		nullable=False)
 	series = Column(String(10),
 		nullable=True)
 	number = Column(String(100),
@@ -100,9 +83,64 @@ class License(Base):
 		nullable=False)
 	end_date = Column(Date,
 		nullable=True)
-	organization = Column(String(500),
+	license_provider = Column(String(500),
 		nullable=True)
+	stop_date = Column(Date,
+		nullable=True)
+	license_stopper = Column(String(500),
+		nullable=True) 
 		
+
+class License2Doc(Base):
+	"""Таблица соединения Документа и лицензий субъекта"""
+	__tablename__ = 'license2doc'
+
+	id = Column(Integer, primary_key=True, nullable=False)
+	doc_id = Column(Integer,
+		ForeignKey('document.id'),
+		nullable=False)		
+	license_id = Column(Integer,
+		ForeignKey('license.id'),
+		nullable=False)
+
+
+class LicenseName(Base):
+	"""Наименование лицензируемого вида деятельности, на который выдана
+	лицензия"""
+	
+	__tablename__ = 'license_names'
+
+	id = Column(Integer,
+		primary_key=True,
+		nullable=False)
+
+	license_id = Column(Integer,
+		ForeignKey('license.id'),
+		nullable=False)
+	name = Column(String(1000),
+		nullable = False)
+	part = Column(Integer,
+		nullable=False)
+
+
+class LicenseAdress(Base):
+	"""Сведения об адресе места осуществления лицензируемого 
+	вида деятельности"""
+	
+	__tablename__ = 'license_adress'
+
+	id = Column(Integer,
+		primary_key=True,
+		nullable=False)
+
+	license_id = Column(Integer,
+		ForeignKey('license.id'),
+		nullable=False)
+	license_adress = Column(String(500),
+		nullable=False)
+	license_adress_part = Column(Integer,
+		nullable=False)
+
 
 class Product(Base):
 	"""Сведения о производимой субъектом МСП продукции"""
@@ -110,18 +148,23 @@ class Product(Base):
 
 	id = Column(Integer, primary_key=True, nullable=False)
 
-	# doc_le_id/doc_ip_id должно быть 0
-	doc_le_id = Column(Integer,
-		ForeignKey('doc_leg_ent.id'),
-		nullable=False)
-	doc_ip_id = Column(Integer,
-		ForeignKey('doc_ind_ent.id'),
-		nullable=False)
 	code = Column(String(18),
 		nullable=False)
 	name = Column(String(1000),
 		nullable=False)
 	innovative_flag = Column(String(1),
+		nullable=False)
+
+class Product2Doc(Base):
+	"""Соединение продукта и Документа"""
+	__tablename__ = 'product2doc'
+
+	id = Column(Integer, primary_key=True, nullable=False)
+	doc_id = Column(Integer,
+		ForeignKey('document.id'),
+		nullable=False)		
+	product_id = Column(Integer,
+		ForeignKey('product.id'),
 		nullable=False)
 
 
@@ -131,13 +174,6 @@ class PartnerProgram(Base):
 
 	id = Column(Integer, primary_key=True, nullable=False)
 
-	# doc_le_id/doc_ip_id должно быть 0
-	doc_le_id = Column(Integer,
-		ForeignKey('doc_leg_ent.id'),
-		nullable=False)
-	doc_ip_id = Column(Integer,
-		ForeignKey('doc_ind_ent.id'),
-		nullable=False)
 	customer_name = Column(String(1000),
 		nullable=False)
 	leg_ent_inn = Column(String(12),
@@ -148,6 +184,20 @@ class PartnerProgram(Base):
 		nullable=False)
 
 
+class Program2Doc(Base):
+	"""Соединение программ партнерства и Документа"""
+	__tablename__ = 'program2doc'
+
+	id = Column(Integer, primary_key=True, nullable=False)
+
+	doc_id = Column(Integer,
+		ForeignKey('document.id'),
+		nullable=False)
+	program_id = Column(Integer,
+		ForeignKey('partner_program.id'),
+		nullable=False)
+		
+
 class Contract(Base):
 	"""Сведения о наличии у субъекта МСП в предшествующем календарном году 
 	контрактов, заключенных в соответствии с Федеральным законом от 5 апреля 
@@ -156,14 +206,8 @@ class Contract(Base):
 
 	id = Column(Integer, primary_key=True, nullable=False)
 
-	# doc_le_id/doc_ip_id должно быть 0
-	doc_le_id = Column(Integer,
-		ForeignKey('doc_leg_ent.id'),
+	customer_name = Column(String(1000),
 		nullable=False)
-	doc_ip_id = Column(Integer,
-		ForeignKey('doc_ind_ent.id'),
-		nullable=False)
-
 	lcustomer_inn = Column(String(12),
 		nullable=False)
 	subject = Column(String(1000),
@@ -174,6 +218,18 @@ class Contract(Base):
 		nullable=True)
 
 
+class Contract2Doc(Base):
+	"""Соединение Документ и контрактов"""
+	__tablename__ = 'contract2doc'
+
+	doc_id = Column(Integer,
+		ForeignKey('document.id'),
+		nullable=False)
+	contract_id = Column(Integer,
+		ForeignKey('contract.id'),
+		nullable=False)
+		
+
 class Agreement(Base):
 	"""Сведения о наличии у субъекта МСП в предшествующем календарном году 
 	договоров, заключенных в соответствии с Федеральным законом от 18 июля
@@ -181,14 +237,6 @@ class Agreement(Base):
 	__tablename__ = 'agreement'
 	
 	id = Column(Integer, primary_key=True, nullable=False)
-
-	# doc_le_id/doc_ip_id должно быть 0
-	doc_le_id = Column(Integer,
-		ForeignKey('doc_leg_ent.id'),
-		nullable=False)
-	doc_ip_id = Column(Integer,
-		ForeignKey('doc_ind_ent.id'),
-		nullable=False)
 
 	customer_name = Column(String(1000),
 		nullable=False)
@@ -198,6 +246,21 @@ class Agreement(Base):
 		nullable=True)
 	registry_number = Column(String(60),
 		nullable=False)
+
+
+class Agreement2Doc(Base):
+	"""Соединение Документа и договоров"""
+	__tablename__ = 'agreement2doc'
+
+	id = Column(Integer, primary_key=True, nullable=False)
+
+	doc_id = Column(Integer,
+		ForeignKey('document.id'),
+		nullable=False)
+	agreement_id = Column(Integer,
+		ForeignKey('agreement.id'),
+		nullable = False)
+		
 
 
 class LegalEntity(Base):
@@ -210,7 +273,7 @@ class LegalEntity(Base):
 	inn = Column(String(12), nullable=False)
 
 
-class IndividualEnterpreneur(Base):
+class Individual(Base):
 	"""Сведения об индивидуальном предпренимателе, включенном в 
 	реестр МСП"""
 	__tablename__ = 'individual_enterpreneur'
@@ -260,6 +323,8 @@ class OkvedCode(Base):
 	__tablename__ = 'okved_codes'
 
 	id = Column(Integer, primary_key=True)
+	origin_file_id = Column(Integer,
+		ForeignKey('doc'))
 	code = Column(String(8), nullable=False,
 		doc='Код вида деятельности по Общероссийскому классификатору видов\
 		 экономической деятельности'
@@ -276,7 +341,6 @@ class AdressReq(Base):
 	__tablename__ = 'adress_req'
 
 	id = Column(Integer, primary_key=True)
-	type_num = Column(Integer, nullable=False)
 	adress_type = Column(String(50), nullable=False)
 	adress_name = Column(String(255), nullable=False)
 
@@ -286,7 +350,6 @@ class AdressOpt(Base):
 	__tablename__ = 'adress_opt'
 
 	id = Column(Integer, primary_key=True)
-	type_num = Column(Integer, nullable=False)
 	adress_type = Column(String(50), nullable=True)
 	adress_name = Column(String(255), nullable=False)
 
@@ -295,6 +358,6 @@ if __name__ == '__main__':
 	# execute basestart.sql before running this script
 
 	from sqlalchemy import create_engine
-	engine = create_engine('mysql+mysqldb://root:1234@localhost:3306/rsmp')
+	engine = create_engine('mysql+mysqldb://root:1234@localhost:3306/rsmp?charset=utf8')
 	Base.metadata.drop_all(engine)
 	Base.metadata.create_all(engine)
