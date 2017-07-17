@@ -24,7 +24,7 @@ def get_archive():
 
     session = Session()
     try:
-        q = session.query(OriginFile).one()
+        q = session.query(OriginFile).first()
         act_date = q.actuality_date
     except Exception as e:
         act_date = parse('01.01.1900')
@@ -44,7 +44,7 @@ def main():
         archive = zipfile.ZipFile(archive_name, 'r')
         xml_names = archive.namelist()
 
-        for name in xml_names[:3]:
+        for name in xml_names:
             print(f'Working on {name}.')
             with archive.open(name) as xmlf:
                 d = xmltodict.parse(xmlf.read())
